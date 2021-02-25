@@ -66,6 +66,7 @@ def get_BLS_county_data(BLS_data_path, df_areas):
     # Import area information
     col_types = {'series_id': str, 'year': int, 'period': str, 'value': str, 'footnote_codes': str}
     df_bls_county = pd.read_table(BLS_data_path, dtype=col_types)
+    df_bls_county.columns = col_types.keys()
 
     # Remove white space from code..
     df_bls_county['series_id'] = df_bls_county['series_id'].map(lambda x: x.strip())
