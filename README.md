@@ -32,6 +32,15 @@ The code produces a .csv file with the following columns.
 
 If all data from 1990-2017 is used, the resulting .csv file is approximately 60mb in size.
 
+For example:
+```
+FIPS,state,countyname,year,month,Employment,Labor_Force,Unemployment,Unemployment_Rate
+01001,AL,Autauga County,1990,1,15469.0,16519.0,1050.0,6.4
+01001,AL,Autauga County,1990,2,15487.0,16581.0,1094.0,6.6
+...
+72153,PR,Yauco Municipio,1999,12,11578.0,13396.0,1818.0,13.6
+```
+
 # Prerequisites
 
 The script requires 'Python' along with the 'pandas' and 'requests' libraries.

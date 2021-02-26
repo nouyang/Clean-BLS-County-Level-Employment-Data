@@ -14,47 +14,33 @@
 
 import pandas as pd
 import requests
+import os
+
+YEARS = ['90-94', '95-99',
+         '00-04', '05-09',
+         '10-14', '15-19',
+         #'20-24'
+         ]
 
 #------------------------------------------------------
 # Download and save .TXT files from BLS website into current directory
 
-BLS_url = 'https://download.bls.gov/pub/time.series/la/'
+def download_raw_data():
+    BLS_url = 'https://download.bls.gov/pub/time.series/la/'
 
-filenames = ['la.area',
-              'la.data.0.CurrentU90-94', 'la.data.0.CurrentU95-99',
-              'la.data.0.CurrentU00-04', 'la.data.0.CurrentU05-09',
-              'la.data.0.CurrentU10-14','la.data.0.CurrentU15-19']
+    filenames = ['la.data.0.CurrentU' + yr for yr in YEARS]
+    filenames.append('la.area') 
 
-for xx in filenames:
-    dls = BLS_url+xx
-    resp = requests.get(dls)
+    for xx in filenames:
+        if os.path.isfile(xx + '.txt'):
+            print(f'File {xx} exists, skipping')
+        else:
+            dls = BLS_url+xx
+            resp = requests.get(dls)
 
-    output = open(xx+'.txt', 'wb')
-    output.write(resp.content)
-    output.close()
-
-#------------------------------------------------------
-# Import area information
-df_areas = pd.read_table('la.area.txt')
-df_areas = df_areas[['area_code', 'area_text']]
-
-# Only keep county information
-df_areas = df_areas.loc[df_areas['area_code'].str.contains('CN')]
-df_areas.reset_index(drop=True, inplace=True)
-
-# Rename columns
-df_areas.columns = ['area_code', 'countyname']
-
-# Get county and state information
-tmp = df_areas['countyname'].str.split(', ', expand=True)
-df_areas['countyname'] = tmp[0]
-df_areas['state'] = tmp[1]
-
-# Remove whitespace
-df_areas['area_code'] = df_areas['area_code'].map(lambda x: x.strip())
-df_areas['countyname'] = df_areas['countyname'].map(lambda x: x.strip())
-# df_areas['state'] = df_areas['state'].map(lambda x: x.strip())    # Doesn't work when missing states?
-
+            output = open(xx+'.txt', 'wb')
+            output.write(resp.content)
+            output.close()
 
 #------------------------------------------------------
 
@@ -113,30 +99,55 @@ def get_BLS_county_data(BLS_data_path, df_areas):
 
     #------------------------------------------------------------
     print('Done!')
-
     return df_bls_county
 
-#------------------------------------------------------------
-# Import all years of data
-df_unemp_90_94 = get_BLS_county_data('la.data.0.CurrentU90-94.txt', df_areas)
-df_unemp_95_99 = get_BLS_county_data('la.data.0.CurrentU95-99.txt', df_areas)
-df_unemp_00_04 = get_BLS_county_data('la.data.0.CurrentU00-04.txt', df_areas)
-df_unemp_05_09 = get_BLS_county_data('la.data.0.CurrentU05-09.txt', df_areas)
-df_unemp_10_14 = get_BLS_county_data('la.data.0.CurrentU10-14.txt', df_areas)
-df_unemp_15_19 = get_BLS_county_data('la.data.0.CurrentU15-19.txt', df_areas)
 
-#------------------------------------------------------------
-# Merge all year's data
-df_unemp_county = df_unemp_90_94
-df_unemp_county = df_unemp_county.append(df_unemp_95_99)
-df_unemp_county = df_unemp_county.append(df_unemp_00_04)
-df_unemp_county = df_unemp_county.append(df_unemp_05_09)
-df_unemp_county = df_unemp_county.append(df_unemp_10_14)
-df_unemp_county = df_unemp_county.append(df_unemp_15_19)
 
-# Sort by year-month
-df_unemp_county = df_unemp_county.sort_values(by=['area_code', 'year', 'month'], axis=0)
+def main():
+    #------------------------------------------------------
+    # Import area information
+    df_areas = pd.read_table('la.area.txt')
+    df_areas = df_areas[['area_code', 'area_text']]
 
-# Save to CSV
-df_unemp_county[['FIPS', 'state', 'countyname', 'year', 'month',
-       'Employment', 'Labor_Force', 'Unemployment', 'Unemployment_Rate']].to_csv('BLS_county_employment.csv', index=False)
+    # Only keep county information
+    df_areas = df_areas.loc[df_areas['area_code'].str.contains('CN')]
+    df_areas.reset_index(drop=True, inplace=True)
+
+    # Rename columns
+    df_areas.columns = ['area_code', 'countyname']
+
+    # Get county and state information
+    tmp = df_areas['countyname'].str.split(', ', expand=True)
+    df_areas['countyname'] = tmp[0]
+    df_areas['state'] = tmp[1]
+
+    # Remove whitespace
+    df_areas['area_code'] = df_areas['area_code'].map(lambda x: x.strip())
+    df_areas['countyname'] = df_areas['countyname'].map(lambda x: x.strip())
+    # df_areas['state'] = df_areas['state'].map(lambda x: x.strip())    # Doesn't work when missing states?
+
+
+    #------------------------------------------------------------
+    # Import all years of data
+    filenames = ['la.data.0.CurrentU' + yr + '.txt' for yr in YEARS]
+    dfs = [get_BLS_county_data(fn, df_areas) for fn in filenames]
+
+    #------------------------------------------------------------
+    # Merge all year's data
+    df_unemp_county = pd.concat(dfs)
+
+    # Sort by year-month
+    df_unemp_county = df_unemp_county.sort_values(by=['area_code', 'year', 'month'], axis=0)
+
+    # Save to CSV
+    df_unemp_county[['FIPS', 'state', 'countyname', 'year', 'month',
+           'Employment', 'Labor_Force', 'Unemployment', 'Unemployment_Rate']].to_csv('BLS_county_employment.csv', index=False)
+
+    print('All Done!')
+
+
+if __name__ == '__main__':
+    # Specify YEARS to download at top of file
+    download_raw_data()
+    main()
+
